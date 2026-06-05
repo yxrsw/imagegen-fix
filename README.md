@@ -50,7 +50,7 @@ uv pip install openai Pillow
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-export OPENAI_BASE_URL="https://api.openai.com"  # 可选，默认使用 OpenAI 官方
+export OPENAI_BASE_URL="https://your-proxy-url.com"  # 可选，不填则使用OpenAI官方
 ```
 
 ### 生成图片
@@ -111,7 +111,7 @@ python image_gen.py generate --prompt "test" --size 1024x1024 --out test.png --m
 
 - **不要同时使用 `--force` 和 `--max-attempts` 高值**：如果网络不稳定，高重试次数可能导致多张图片生成
 - **第一次使用建议用 `--dry-run`** 检查参数是否正确
-- 如果使用第三方中转 API（如 tokenstation.top），部分上游可能返回 502，属于正常范围，重试即可
+- 如果使用第三方中转 API，部分上游可能返回 502，属于正常范围，重试即可
 - 本脚本与官方 gpt-image-2 模型兼容，也兼容支持该模型的第三方中转接口
 
 ## License
