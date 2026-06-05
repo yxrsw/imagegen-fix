@@ -1,7 +1,8 @@
 ﻿# api2img — 用中转 API Key 在 Codex 里生成图片
 
-> **你不是因为没有 OpenAI 官方 Key，而是因为你买的是中转 Key。**
-> 这个技能就是专门解决这个问题的：让你买的中转 Key 也能在 Codex 里正常生成图片。
+> 📌 **本仓库基于 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 优化而来。**
+> 原项目解决了「中转 Key 在 Codex 里生图」的问题，本仓库在此基础上修复了一个双重扣费的 bug。
+> 如果你只需要基础功能，直接用原版就行；如果你遇到过重试导致重复扣费，可以试试这个修复版。
 
 ---
 
@@ -56,14 +57,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File api2img\scripts\invoke-api2i
 
 等一两分钟，`my-first-image.png` 就是你的第一张图了。
 
-如果你不想每次打这么长的命令，也可以直接用引擎脚本（跳过 api2img，自己设环境变量）：
-
-```bash
-set OPENAI_API_KEY=你的中转Key
-set OPENAI_BASE_URL=https://商家给你的地址
-python imagegen\image_gen.py generate --prompt "一只橘猫" --out cat.png
-```
-
 ---
 
 ## 完整使用指南
@@ -83,20 +76,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File api2img\scripts\invoke-api2i
 powershell -NoProfile -ExecutionPolicy Bypass -File api2img\scripts\invoke-api2img.ps1 edit --image 原图.png --prompt "改个背景" --size 1024x1024 --out 改完.png
 ```
 
-**情况 B：你习惯自己管环境变量，或者想用脚本跑**
+**情况 B：你习惯自己管环境变量**
 
-→ 自己设好环境变量，直接调 `imagegen\image_gen.py`
+→ 自己设好环境变量，直接调引擎脚本
 
 ```bash
-export OPENAI_API_KEY="你的中转Key"
-export OPENAI_BASE_URL="https://商家给你的地址"
+set OPENAI_API_KEY=你的中转Key
+set OPENAI_BASE_URL=https://商家给你的地址
 python imagegen\image_gen.py generate --prompt "描述" --size 1024x1024 --out 1.png
 ```
-
-**情况 C：你是用 Codex 聊天界面，让它帮你生成**
-
-→ 直接跟 Codex 说："帮我生成一张 xxx 的图片"  
-→ Codex 会自动调用这个技能（只要它检测到你已经配好了）
 
 ---
 
@@ -106,7 +94,6 @@ python imagegen\image_gen.py generate --prompt "描述" --size 1024x1024 --out 1
 |---------|------|
 | 生成一张方形图 | `... generate --prompt "描述" --size 1024x1024 --out 1.png` |
 | 生成竖版人像 | `... generate --prompt "描述" --size 1024x1536 --out 1.png` |
-| 生成 2K 高清 | `... generate --prompt "描述" --size 2048x2048 --out 1.png` |
 | 一次出 4 张 | `... generate --prompt "描述" --n 4 --out-dir ./output` |
 | 编辑图片 | `... edit --image 1.png --prompt "换背景" --out 2.png` |
 | 先看看参数对不对 | `... generate --prompt "测试" --dry-run` |
@@ -115,44 +102,83 @@ python imagegen\image_gen.py generate --prompt "描述" --size 1024x1024 --out 1
 
 ### 管理你的配置
 
-**换一个新的中转 Key：**
+**换 Key 不换地址：**
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File api2img\scripts\configure-api2img.ps1 -UpdateKey -Language zh
 ```
 
-**换一个中转地址：**
+**换地址（顺便也能换 Key）：**
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File api2img\scripts\configure-api2img.ps1 -BaseUrl "新地址" -Language zh
 ```
 
-**清除所有配置（换了商家不想留旧信息）：**
+**清除所有配置（换商家了，不想留旧信息）：**
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File api2img\scripts\configure-api2img.ps1 -Clear -Language zh
 ```
 
 ---
 
+## 本仓库修复了什么
+
+> 这部分是**这个仓库相对于原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 唯一的不同**。
+
+### 问题
+
+OpenAI 的 Python SDK 有一个「贴心」设计：如果网络波动导致客户端收响应时断连，它会**自动把请求再发一次**。结果就是：
+
+- 第一次请求：API 收到 → 生成了图片 → 准备返回时断了一下
+- SDK 自动重试 → API 又收到一次请求 → **又生成了一张新图**
+- **后台扣了两次费，你只拿到一张图**
+
+加上底层引擎脚本本身也有重试机制（默认 3 次），两层叠在一起就更乱了。
+
+### 修复内容
+
+**改了一个文件：`imagegen/image_gen.py`**
+
+| 改了什么 | 原来 | 现在 |
+|---------|------|------|
+| OpenAI 客户端创建 | `OpenAI()`（默认自动重试 2 次） | `OpenAI(max_retries=0)`（不重试） |
+| AsyncOpenAI 客户端创建 | `AsyncOpenAI()`（同上） | `AsyncOpenAI(max_retries=0)`（同上） |
+| generate 子命令 | 隐式默认重试 3 次 | 显式 `--max-attempts` 默认 1 |
+| edit 子命令 | 同上 | 同上 |
+| 兜底逻辑 | 默认重试 3 次 | 默认 1 |
+
+### 修复后
+
+- ✅ **默认一次都不重试**：一次调用 = 一次扣费
+- ✅ **遇到网络故障**：立即报错退出，不浪费钱
+- ✅ **如果你网络真不稳**：可以手动加 `--max-attempts 2` 允许重试
+- ✅ **改动极小**：只动了底层引擎的 6 行代码，api2img 入口层未动
+
+### 如果你不想用这个修复版
+
+直接用原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 即可，功能是一样的，只是多了一个可能重复扣费的小风险。
+
+---
+
 ## 这个技能安全吗？
 
-**安全。因为是这么设计的：**
+是的。
 
 1. **你的 Key 不会出现在聊天里**——配置时是弹窗输入，不是打在命令行里
 2. **你的 Key 加密存在本机**——Windows DPAPI 加密，只有你的账号能解开
-3. **不影响你电脑上其他 API 配置**——它不会改你原来的 `OPENAI_API_KEY` 环境变量，只是在调用的瞬间临时借用一下
-4. **生成的图片发到哪？**——发到你配置的那个中转商家，不是发给 OpenAI 官方。如果不熟悉那个商家，别用来处理身份证、人脸等敏感内容
+3. **不影响你电脑上其他 API 配置**——它不会改你原来的 `OPENAI_API_KEY`，只是在调用时临时借用
+4. **生成的图片发到哪？**——发到你配置的那个中转商家，不是 OpenAI 官方。如果不熟悉那个商家，别用来处理身份证、人脸等敏感内容
 
 ---
 
 ## 常见问题
 
-### Q: 生成时报错 502 / 连接失败？
-A：这是你买的中转商家那边的问题。等几秒重试一下。如果一直报，联系你的商家客服。
+### Q: 生成时报错 502？
+A：这是你买的中转商家那边的问题。等几秒重试。如果一直报，联系你的商家客服。
 
 ### Q: 为什么要等一两分钟？
-A：图片生成本来就慢，中转 API 还要再经过一层转发，比直连 OpenAI 会慢一些，这是正常的。
+A：图片生成本来就慢，中转还要多一层转发，这是正常的。
 
 ### Q: 提示 `ExecutionPolicy` 错误？
-A：Windows 默认禁止跑 .ps1 脚本。加参数绕过：
+A：Windows 默认禁止跑 .ps1 脚本。加参数：
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File 脚本路径
 ```
@@ -160,48 +186,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 脚本路径
 ### Q: 换电脑了怎么办？
 A：Key 是加密存在当前电脑上的，换电脑需要重新配一次。
 
-### Q: 怎么知道中转支不支持 gpt-image-2？
-A：可以先试 `--dry-run` 看看参数对不对。如果商家明确说支持 DALL·E / gpt-image-2 类接口，一般就能用。
+### Q: 可能重复扣费吗？
+A：这个仓库修复了这个问题。如果你用的是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill)，在网络不稳定时有很小概率会重复扣费。
 
-### Q: 为什么不像官方那样直接设 `OPENAI_API_KEY` 就行？
-A：因为你买的中转 Key 除了 Key 本身，还需要一个**Base URL**（中转地址）。官方 OpenAI 不需要这个，所以一套标准的环境变量就够了。中转用户需要两个信息，这个技能就是帮你把这套东西管起来。
-
----
-
-## 文件说明
-
-```
-imagegen-fix/
-│
-├── imagegen/               ← 引擎（真正做图片生成的代码）
-│   ├── image_gen.py        ← 核心脚本，已修双重扣费问题
-│   ├── references/         ← 提示词技巧、API参数等文档
-│   └── remove_chroma_key.py  ← 去背景工具
-│
-├── api2img/                ← 入口（中转 Key 的配置和管理）
-│   ├── scripts/
-│   │   ├── configure-api2img.ps1  ← 配 Key 和 URL 用的
-│   │   ├── invoke-api2img.ps1     ← 调它来生成图片
-│   │   └── load-api2img-env.ps1   ← 自动加载环境的
-│   └── SKILL.md / README.md
-│
-├── scripts/
-│   └── remove_chroma_key.py  ← 去背景工具（快捷入口）
-│
-└── requirements.txt
-```
+### Q: 这个仓库跟原版什么关系？
+A：本仓库是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 的一个优化分支，改动只有 `imagegen/image_gen.py` 中的 6 行代码（禁用自动重试），其余文件保持原样。
 
 ---
 
-## 进阶：关于双重扣费修复
+## 致谢
 
-> 如果你只是来用中转 Key 生成图片的，这一段可以跳过。
-
-上一版的脚本有个 bug：网络稍微波动一下，它会自动重试，导致你**付了两张的钱，只拿到一张图**。
-
-这个仓库修复了这个问题：
-- **默认不重试了**：一次调用 = 一次扣费
-- **还想要重试？**：手动加 `--max-attempts 2`
-- **遇到网络故障？**：立即报错，不会偷偷重试浪费钱
-
-修复的是 `imagegen/image_gen.py`，跟 api2img 入口层无关。
+- 原项目：[MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) — 解决了中转 Key 在 Codex 里生成图片的问题
+- 本仓库仅在其基础上修复了双重扣费问题
