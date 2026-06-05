@@ -1,7 +1,7 @@
 ﻿# api2img — 用中转 API Key 在 Codex 里生成图片
 
 > 📌 **本仓库基于 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 优化而来。**
-> 原项目解决了「中转 Key 在 Codex 里生图」的问题，本仓库在此基础上修复了一个双重扣费的 bug。
+> 原项目解决了「中转 Key 在 Codex 里生图」的问题，本仓库在此基础上修复了可能多重扣费的 bug。
 > 如果你只需要基础功能，直接用原版就行；如果你遇到过重试导致重复扣费，可以试试这个修复版。
 
 ---
@@ -154,7 +154,7 @@ OpenAI 的 Python SDK 有一个「贴心」设计：如果网络波动导致客�
 
 ### 如果你不想用这个修复版
 
-直接用原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 即可，功能是一样的，只是多了一个可能重复扣费的小风险。
+直接用原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 即可，功能是一样的，只是网络波动时可能出现多重扣费。
 
 ---
 
@@ -187,7 +187,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 脚本路径
 A：Key 是加密存在当前电脑上的，换电脑需要重新配一次。
 
 ### Q: 可能重复扣费吗？
-A：这个仓库修复了这个问题。如果你用的是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill)，在网络不稳定时有很小概率会重复扣费。
+A：这个仓库修复了这个问题。如果你用的是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill)，在网络波动时可能出现多重扣费。
 
 ### Q: 这个仓库跟原版什么关系？
 A：本仓库是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) 的一个优化分支，改动只有 `imagegen/image_gen.py` 中的 6 行代码（禁用自动重试），其余文件保持原样。
@@ -197,5 +197,6 @@ A：本仓库是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2im
 ## 致谢
 
 - 原项目：[MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) — 解决了中转 Key 在 Codex 里生成图片的问题
-- 本仓库仅在其基础上修复了双重扣费问题
+- 本仓库仅在其基础上修复了多重扣费问题
+
 
