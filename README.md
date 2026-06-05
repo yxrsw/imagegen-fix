@@ -198,3 +198,4 @@ A：本仓库是原版 [MrVoler/api2img-skill](https://github.com/MrVoler/api2im
 
 - 原项目：[MrVoler/api2img-skill](https://github.com/MrVoler/api2img-skill) — 解决了中转 Key 在 Codex 里生成图片的问题
 - 本仓库仅在其基础上修复了双重扣费问题
+
